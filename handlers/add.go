@@ -1,7 +1,10 @@
 package handlers
 
 import (
+	"bytes"
 	"net/http"
+	"strconv"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,14 +18,16 @@ type AddResponse struct {
 	Result float64 `json:"result"`
 }
 
+var bufferPool = sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
+
 func AddHandler(c *gin.Context) {
 	var req AddRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+	buf := bufferPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufferPool.Put(buf)
 
 	result := req.A + req.B
-
-	c.JSON(http.StatusOK, AddResponse{Result: result})
+	jsonBuf := append([]byte(`{"result":`), strconv.FormatFloat(result, 'f', -1, 64)...)
+	jsonBuf = append(jsonBuf, '}')
+	c.Data(http.StatusOK, "application/json", jsonBuf)
 }
